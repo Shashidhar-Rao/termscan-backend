@@ -7,6 +7,8 @@ from bs4 import BeautifulSoup
 app = Flask(__name__)
 CORS(app)
 
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
+
 @app.route('/fetch-terms', methods=['POST'])
 def fetch_terms():
     url = request.json.get('url')
@@ -17,6 +19,30 @@ def fetch_terms():
             tag.decompose()
         text = soup.get_text(separator='\n', strip=True)
         return jsonify({ 'text': text[:8000] })
+    except Exception as e:
+        return jsonify({ 'error': str(e) }), 500
+
+@app.route('/analyze', methods=['POST'])
+def analyze():
+    try:
+        data = request.json
+        messages = data.get('messages', [])
+        system = data.get('system', '')
+        res = requests.post('https://api.anthropic.com/v1/messages', 
+            headers={
+                'Content-Type': 'application/json',
+                'x-api-key': ANTHROPIC_API_KEY,
+                'anthropic-version': '2023-06-01'
+            },
+            json={
+                'model': 'claude-sonnet-4-20250514',
+                'max_tokens': 1000,
+                'system': system,
+                'messages': messages
+            },
+            timeout=60
+        )
+        return jsonify(res.json())
     except Exception as e:
         return jsonify({ 'error': str(e) }), 500
 
